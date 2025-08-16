@@ -1,13 +1,15 @@
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from Plot.AnimatePlotDriver import CAnimateDriver
+from Plot.AnimatePlotDriver_matplotlib import CAnimateDriver
 from Plot.PlotDriver import CPlotDriver
+import matplotlib
+matplotlib.use('TkAgg') # 或者 'Qt5Agg'
 
 if __name__ == "__main__":
     code = "sz.000001"
-    begin_time = "2018-01-01"
-    end_time = None
+    begin_time = "2017-01-01"
+    end_time = "2019-01-01"
     data_src = DATA_SRC.BAO_STOCK
     lv_list = [KL_TYPE.K_DAY]
 
@@ -33,7 +35,7 @@ if __name__ == "__main__":
         "plot_seg": True,
         "plot_eigen": False,
         "plot_zs": True,
-        "plot_macd": False,
+        "plot_macd": True,
         "plot_mean": False,
         "plot_channel": False,
         "plot_bsp": True,
@@ -53,7 +55,7 @@ if __name__ == "__main__":
             # "disp_end": True,
         },
         "figure": {
-            "x_range": 200,
+            # "x_range": 200,
         },
         "marker": {
             # "markers": {  # text, position, color
@@ -79,7 +81,8 @@ if __name__ == "__main__":
             plot_para=plot_para,
         )
         plot_driver.figure.show()
-        plot_driver.save2img("./test.png")
+        plot_driver.save2img("./test_with_macd.png")
+        input("按回车键退出...")
     else:
         CAnimateDriver(
             chan,

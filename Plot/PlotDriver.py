@@ -157,28 +157,43 @@ class CPlotDriver:
     def __init__(self, chan: CChan, plot_config: Union[str, dict, list] = '', plot_para=None):
         if plot_para is None:
             plot_para = {}
-        figure_config: dict = plot_para.get('figure', {})
+        self.figure_config: dict = plot_para.get('figure', {})
 
-        plot_config = parse_plot_config(plot_config, chan.lv_list)
-        plot_metas = GetPlotMeta(chan, figure_config)
-        self.lv_lst = chan.lv_list[:len(plot_metas)]
+        self.plot_config = parse_plot_config(plot_config, chan.lv_list)
+        self.chan = chan
+        self.plot_para = plot_para
 
-        x_range = self.GetRealXrange(figure_config, plot_metas[0])
-        plot_macd: Dict[KL_TYPE, bool] = {kl_type: conf.get("plot_macd", False) for kl_type, conf in plot_config.items()}
-        self.figure, axes = create_figure(plot_macd, figure_config, self.lv_lst)
+        plot_macd: Dict[KL_TYPE, bool] = {kl_type: conf.get("plot_macd", False) for kl_type, conf in self.plot_config.items()}
+        # 获取初始的lv_lst用于创建figure
+        initial_plot_metas = GetPlotMeta(chan, self.figure_config)
+        self.lv_lst = chan.lv_list[:len(initial_plot_metas)]
+        self.figure, self.axes_dict = create_figure(plot_macd, self.figure_config, self.lv_lst)
+
+        self.draw()
+
+    def draw(self):
+        # 每次draw时重新获取最新的plot_metas
+        self.plot_metas = GetPlotMeta(self.chan, self.figure_config)
+        self.lv_lst = self.chan.lv_list[:len(self.plot_metas)]
+
+        x_range = self.GetRealXrange(self.figure_config, self.plot_metas[0])
 
         sseg_begin = 0
-        slv_seg_cnt = plot_para.get('seg', {}).get('sub_lv_cnt', None)
+        slv_seg_cnt = self.plot_para.get('seg', {}).get('sub_lv_cnt', None)
         sbi_begin = 0
-        slv_bi_cnt = plot_para.get('bi', {}).get('sub_lv_cnt', None)
+        slv_bi_cnt = self.plot_para.get('bi', {}).get('sub_lv_cnt', None)
         srange_begin = 0
         assert slv_seg_cnt is None or slv_bi_cnt is None, "you can set at most one of seg_sub_lv_cnt/bi_sub_lv_cnt"
 
-        for meta, lv in zip(plot_metas, self.lv_lst):  # type: ignore
-            ax = axes[lv][0]
-            ax_macd = None if len(axes[lv]) == 1 else axes[lv][1]
-            set_grid(ax, figure_config.get("grid", "xy"))
-            ax.set_title(f"{chan.code}/{lv.name.split('K_')[1]}", fontsize=16, loc='left', color='r')
+        for meta, lv in zip(self.plot_metas, self.lv_lst):  # type: ignore
+            ax = self.axes_dict[lv][0]
+            ax_macd = None if len(self.axes_dict[lv]) == 1 else self.axes_dict[lv][1]
+            ax.clear()
+            if ax_macd:
+                ax_macd.clear()
+
+            set_grid(ax, self.figure_config.get("grid", "xy"))
+            ax.set_title(f"{self.chan.code}/{lv.name.split('K_')[1]}", fontsize=16, loc='left', color='r')
 
             x_limits = cal_x_limit(meta, x_range)
             if lv != self.lv_lst[0]:
@@ -186,12 +201,12 @@ class CPlotDriver:
                     x_limits[0] = max(sseg_begin, sbi_begin)
                 elif srange_begin != 0:
                     x_limits[0] = srange_begin
-            set_x_tick(ax, x_limits, meta.datetick, figure_config.get('x_tick_num', 10))
+            set_x_tick(ax, x_limits, meta.datetick, self.figure_config.get('x_tick_num', 10))
             if ax_macd:
-                set_x_tick(ax_macd, x_limits, meta.datetick, figure_config.get('x_tick_num', 10))
+                set_x_tick(ax_macd, x_limits, meta.datetick, self.figure_config.get('x_tick_num', 10))
             self.y_min, self.y_max = cal_y_range(meta, ax)  # 需要先设置 x_tick后计算
 
-            self.DrawElement(plot_config[lv], meta, ax, lv, plot_para, ax_macd, x_limits)
+            self.DrawElement(self.plot_config[lv], meta, ax, lv, self.plot_para, ax_macd, x_limits)
 
             if lv != self.lv_lst[-1]:
                 if slv_seg_cnt is not None:
