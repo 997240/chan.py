@@ -1,4 +1,4 @@
-from .CEnum import BI_DIR, KL_TYPE
+from .enums import BI_DIR, KL_TYPE
 
 
 def kltype_lt_day(_type):

@@ -1,8 +1,8 @@
-from Chan import CChan
-from ChanConfig import CChanConfig
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from Plot.AnimatePlotDriver_matplotlib import CAnimateDriver
-from Plot.PlotDriver import CPlotDriver
+from chan import Chan
+from chan_config import ChanConfig
+from common.enums import AUTYPE, DATA_SRC, KL_TYPE
+from plot.animate_plot_driver_matplotlib import AnimateDriver
+from plot.plot_driver import PlotDriver
 import matplotlib
 matplotlib.use('TkAgg') # 或者 'Qt5Agg'
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     data_src = DATA_SRC.BAO_STOCK
     lv_list = [KL_TYPE.K_DAY]
 
-    config = CChanConfig({
+    config = ChanConfig({
         "bi_strict": True,
         "trigger_step": False,
         "skip_step": 0,
@@ -64,7 +64,7 @@ if __name__ == "__main__":
             # },
         }
     }
-    chan = CChan(
+    chan = Chan(
         code=code,
         begin_time=begin_time,
         end_time=end_time,
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     )
 
     if not config.trigger_step:
-        plot_driver = CPlotDriver(
+        plot_driver = PlotDriver(
             chan,
             plot_config=plot_config,
             plot_para=plot_para,
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         plot_driver.save2img("./test_with_macd.png")
         input("按回车键退出...")
     else:
-        CAnimateDriver(
+        AnimateDriver(
             chan,
             plot_config=plot_config,
             plot_para=plot_para,

@@ -1,17 +1,17 @@
 from typing import Generic, List, Optional, Self, TypeVar
 
-from Bi.Bi import CBi
-from Common.CEnum import BI_DIR, MACD_ALGO, TREND_LINE_SIDE
-from Common.ChanException import CChanException, ErrCode
-from KLine.KLine_Unit import CKLine_Unit
-from Math.TrendLine import CTrendLine
+from bi.bi import Bi
+from common.enums import BI_DIR, MACD_ALGO, TREND_LINE_SIDE
+from common.chan_exception import ChanException, ErrCode
+from kline.kline_unit import KLineUnit
+from math_util.trend_line import TrendLine
 
-from .EigenFX import CEigenFX
+from .eigen_fx import EigenFX
 
-LINE_TYPE = TypeVar('LINE_TYPE', CBi, "CSeg")
+LINE_TYPE = TypeVar('LINE_TYPE', Bi, "Seg")
 
 
-class CSeg(Generic[LINE_TYPE]):
+class Seg(Generic[LINE_TYPE]):
     def __init__(self, idx: int, start_bi: LINE_TYPE, end_bi: LINE_TYPE, is_sure=True, seg_dir=None, reason="normal"):
         assert start_bi.idx == 0 or start_bi.dir == end_bi.dir or not is_sure, f"{start_bi.idx} {end_bi.idx} {start_bi.dir} {end_bi.dir}"
         self.idx = idx
@@ -20,17 +20,17 @@ class CSeg(Generic[LINE_TYPE]):
         self.is_sure = is_sure
         self.dir = end_bi.dir if seg_dir is None else seg_dir
 
-        from ZS.ZS import CZS
-        self.zs_lst: List[CZS[LINE_TYPE]] = []
+        from zs.zs import ZS
+        self.zs_lst: List[ZS[LINE_TYPE]] = []
 
-        self.eigen_fx: Optional[CEigenFX] = None
+        self.eigen_fx: Optional[EigenFX] = None
         self.seg_idx = None  # 线段的线段用
-        self.parent_seg: Optional[CSeg] = None  # 在哪个线段里面
+        self.parent_seg: Optional[Seg] = None  # 在哪个线段里面
         self.pre: Optional[Self] = None
         self.next: Optional[Self] = None
 
-        from BuySellPoint.BS_Point import CBS_Point
-        self.bsp: Optional[CBS_Point] = None  # 尾部是不是买卖点
+        from buy_sell_point.bs_point import BSPoint
+        self.bsp: Optional[BSPoint] = None  # 尾部是不是买卖点
 
         self.bi_list: List[LINE_TYPE] = []  # 仅通过self.update_bi_list来更新
         self.reason = reason
@@ -50,11 +50,11 @@ class CSeg(Generic[LINE_TYPE]):
             return
         if self.is_down():
             if self.start_bi.get_begin_val() < self.end_bi.get_end_val():
-                raise CChanException(f"下降线段起始点应该高于结束点! idx={self.idx}", ErrCode.SEG_END_VALUE_ERR)
+                raise ChanException(f"下降线段起始点应该高于结束点! idx={self.idx}", ErrCode.SEG_END_VALUE_ERR)
         elif self.start_bi.get_begin_val() > self.end_bi.get_end_val():
-            raise CChanException(f"上升线段起始点应该低于结束点! idx={self.idx}", ErrCode.SEG_END_VALUE_ERR)
+            raise ChanException(f"上升线段起始点应该低于结束点! idx={self.idx}", ErrCode.SEG_END_VALUE_ERR)
         if self.end_bi.idx - self.start_bi.idx < 2:
-            raise CChanException(f"线段({self.start_bi.idx}-{self.end_bi.idx})长度不能小于2! idx={self.idx}", ErrCode.SEG_LEN_ERR)
+            raise ChanException(f"线段({self.start_bi.idx}-{self.end_bi.idx})长度不能小于2! idx={self.idx}", ErrCode.SEG_LEN_ERR)
 
     def __str__(self):
         return f"{self.start_bi.idx}->{self.end_bi.idx}: {self.dir}  {self.is_sure}"
@@ -96,10 +96,10 @@ class CSeg(Generic[LINE_TYPE]):
     def amp(self):
         return abs(self.get_end_val() - self.get_begin_val())
 
-    def get_end_klu(self) -> CKLine_Unit:
+    def get_end_klu(self) -> KLineUnit:
         return self.end_bi.get_end_klu()
 
-    def get_begin_klu(self) -> CKLine_Unit:
+    def get_begin_klu(self) -> KLineUnit:
         return self.start_bi.get_begin_klu()
 
     def get_klu_cnt(self):
@@ -107,13 +107,13 @@ class CSeg(Generic[LINE_TYPE]):
 
     def cal_macd_metric(self, macd_algo, is_reverse):
         if macd_algo == MACD_ALGO.SLOPE:
-            return self.Cal_MACD_slope()
+            return self.cal_macd_slope()
         elif macd_algo == MACD_ALGO.AMP:
-            return self.Cal_MACD_amp()
+            return self.cal_macd_amp()
         else:
-            raise CChanException(f"unsupport macd_algo={macd_algo} of Seg, should be one of slope/amp", ErrCode.PARA_ERROR)
+            raise ChanException(f"unsupport macd_algo={macd_algo} of Seg, should be one of slope/amp", ErrCode.PARA_ERROR)
 
-    def Cal_MACD_slope(self):
+    def cal_macd_slope(self):
         begin_klu = self.get_begin_klu()
         end_klu = self.get_end_klu()
         if self.is_up():
@@ -121,7 +121,7 @@ class CSeg(Generic[LINE_TYPE]):
         else:
             return (begin_klu.high - end_klu.low)/begin_klu.high/(end_klu.idx - begin_klu.idx + 1)
 
-    def Cal_MACD_amp(self):
+    def cal_macd_amp(self):
         begin_klu = self.get_begin_klu()
         end_klu = self.get_end_klu()
         if self.is_down():
@@ -134,8 +134,8 @@ class CSeg(Generic[LINE_TYPE]):
             bi_lst[bi_idx].parent_seg = self
             self.bi_list.append(bi_lst[bi_idx])
         if len(self.bi_list) >= 3:
-            self.support_trend_line = CTrendLine(self.bi_list, TREND_LINE_SIDE.INSIDE)
-            self.resistance_trend_line = CTrendLine(self.bi_list, TREND_LINE_SIDE.OUTSIDE)
+            self.support_trend_line = TrendLine(self.bi_list, TREND_LINE_SIDE.INSIDE)
+            self.resistance_trend_line = TrendLine(self.bi_list, TREND_LINE_SIDE.OUTSIDE)
 
     def get_first_multi_bi_zs(self):
         return next((zs for zs in self.zs_lst if not zs.is_one_bi_zs()), None)

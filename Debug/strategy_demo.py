@@ -1,6 +1,10 @@
-from Chan import CChan
-from ChanConfig import CChanConfig
-from Common.CEnum import AUTYPE, BSP_TYPE, DATA_SRC, FX_TYPE, KL_TYPE
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from chan import Chan
+from chan_config import ChanConfig
+from common.enums import AUTYPE, BSP_TYPE, DATA_SRC, FX_TYPE, KL_TYPE
 
 if __name__ == "__main__":
     """
@@ -13,13 +17,13 @@ if __name__ == "__main__":
     data_src = DATA_SRC.BAO_STOCK
     lv_list = [KL_TYPE.K_DAY]
 
-    config = CChanConfig({
+    config = ChanConfig({
         "trigger_step": True,  # 打开开关！
         "divergence_rate": 0.8,
         "min_zs_cnt": 1,
     })
 
-    chan = CChan(
+    chan = Chan(
         code=code,
         begin_time=begin_time,
         end_time=end_time,

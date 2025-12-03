@@ -24,10 +24,10 @@ class CTime:
         else:
             return f"{self.year:04}/{self.month:02}/{self.day:02} {self.hour:02}:{self.minute:02}"
 
-    def toDateStr(self, splt=''):
+    def to_date_str(self, splt=''):
         return f"{self.year:04}{splt}{self.month:02}{splt}{self.day:02}"
 
-    def toDate(self):
+    def to_date(self):
         return CTime(self.year, self.month, self.day, 0, 0, auto=False)
 
     def set_timestamp(self):

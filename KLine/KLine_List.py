@@ -1,53 +1,53 @@
 import copy
 from typing import List, Union, overload
 
-from Bi.Bi import CBi
-from Bi.BiList import CBiList
-from BuySellPoint.BSPointList import CBSPointList
-from ChanConfig import CChanConfig
-from Common.CEnum import KLINE_DIR, SEG_TYPE
-from Common.ChanException import CChanException, ErrCode
-from Seg.Seg import CSeg
-from Seg.SegConfig import CSegConfig
-from Seg.SegListComm import CSegListComm
-from ZS.ZSList import CZSList
+from bi.bi import Bi
+from bi.bi_list import BiList
+from buy_sell_point.bs_point_list import BSPointList
+from chan_config import ChanConfig
+from common.enums import KLINE_DIR, SEG_TYPE
+from common.chan_exception import ChanException, ErrCode
+from seg.seg import Seg
+from seg.seg_config import SegConfig
+from seg.seg_list_comm import SegListComm
+from zs.zs_list import ZSList
 
-from .KLine import CKLine
-from .KLine_Unit import CKLine_Unit
+from .kline import KLine
+from .kline_unit import KLineUnit
 
 
-def get_seglist_instance(seg_config: CSegConfig, lv) -> CSegListComm:
+def get_seglist_instance(seg_config: SegConfig, lv) -> SegListComm:
     if seg_config.seg_algo == "chan":
-        from Seg.SegListChan import CSegListChan
-        return CSegListChan(seg_config, lv)
+        from seg.seg_list_chan import SegListChan
+        return SegListChan(seg_config, lv)
     elif seg_config.seg_algo == "1+1":
         print(f'Please avoid using seg_algo={seg_config.seg_algo} as it is deprecated and no longer maintained.')
-        from Seg.SegListDYH import CSegListDYH
-        return CSegListDYH(seg_config, lv)
+        from seg.seg_list_dyh import SegListDYH
+        return SegListDYH(seg_config, lv)
     elif seg_config.seg_algo == "break":
         print(f'Please avoid using seg_algo={seg_config.seg_algo} as it is deprecated and no longer maintained.')
-        from Seg.SegListDef import CSegListDef
-        return CSegListDef(seg_config, lv)
+        from seg.seg_list_def import SegListDef
+        return SegListDef(seg_config, lv)
     else:
-        raise CChanException(f"unsupport seg algoright:{seg_config.seg_algo}", ErrCode.PARA_ERROR)
+        raise ChanException(f"unsupport seg algoright:{seg_config.seg_algo}", ErrCode.PARA_ERROR)
 
 
-class CKLine_List:
-    def __init__(self, kl_type, conf: CChanConfig):
+class KLineList:
+    def __init__(self, kl_type, conf: ChanConfig):
         self.kl_type = kl_type
         self.config = conf
-        self.lst: List[CKLine] = []  # K线列表，可递归  元素KLine类型
-        self.bi_list = CBiList(bi_conf=conf.bi_conf)
-        self.seg_list: CSegListComm[CBi] = get_seglist_instance(seg_config=conf.seg_conf, lv=SEG_TYPE.BI)
-        self.segseg_list: CSegListComm[CSeg[CBi]] = get_seglist_instance(seg_config=conf.seg_conf, lv=SEG_TYPE.SEG)
+        self.lst: List[KLine] = []  # K线列表，可递归  元素KLine类型
+        self.bi_list = BiList(bi_conf=conf.bi_conf)
+        self.seg_list: SegListComm[Bi] = get_seglist_instance(seg_config=conf.seg_conf, lv=SEG_TYPE.BI)
+        self.segseg_list: SegListComm[Seg[Bi]] = get_seglist_instance(seg_config=conf.seg_conf, lv=SEG_TYPE.SEG)
 
-        self.zs_list = CZSList(zs_config=conf.zs_conf)
-        self.segzs_list = CZSList(zs_config=conf.zs_conf)
+        self.zs_list = ZSList(zs_config=conf.zs_conf)
+        self.segzs_list = ZSList(zs_config=conf.zs_conf)
 
-        self.bs_point_lst = CBSPointList[CBi, CBiList](bs_point_config=conf.bs_point_conf)
-        self.seg_bs_point_lst = CBSPointList[CSeg, CSegListComm](bs_point_config=conf.seg_bs_point_conf)
+        self.bs_point_lst = BSPointList[Bi, BiList](bs_point_config=conf.bs_point_conf)
+        self.seg_bs_point_lst = BSPointList[Seg, SegListComm](bs_point_config=conf.seg_bs_point_conf)
 
-        self.metric_model_lst = conf.GetMetricModel()
+        self.metric_model_lst = conf.get_metric_model()
 
         self.step_calculation = self.need_cal_step_by_step()
 
@@ -55,7 +55,7 @@ class CKLine_List:
         self.last_sure_segseg_start_bi_idx = -1
 
     def __deepcopy__(self, memo):
-        new_obj = CKLine_List(self.kl_type, self.config)
+        new_obj = KLine_List(self.kl_type, self.config)
         memo[id(self)] = new_obj
         for klc in self.lst:
             klus_new = []
@@ -66,7 +66,7 @@ class CKLine_List:
                     new_klu.set_pre_klu(memo[id(klu.pre)])
                 klus_new.append(new_klu)
 
-            new_klc = CKLine(klus_new[0], idx=klc.idx, _dir=klc.dir)
+            new_klc = KLine(klus_new[0], idx=klc.idx, _dir=klc.dir)
             new_klc.set_fx(klc.fx)
             new_klc.kl_type = klc.kl_type
             for idx, klu in enumerate(klus_new):
@@ -90,12 +90,12 @@ class CKLine_List:
         return new_obj
 
     @overload
-    def __getitem__(self, index: int) -> CKLine: ...
+    def __getitem__(self, index: int) -> KLine: ...
 
     @overload
-    def __getitem__(self, index: slice) -> List[CKLine]: ...
+    def __getitem__(self, index: slice) -> List[KLine]: ...
 
-    def __getitem__(self, index: Union[slice, int]) -> Union[List[CKLine], CKLine]:
+    def __getitem__(self, index: Union[slice, int]) -> Union[List[KLine], KLine]:
         return self.lst[index]
 
     def __len__(self):
@@ -119,14 +119,14 @@ class CKLine_List:
     def need_cal_step_by_step(self):
         return self.config.trigger_step
 
-    def add_single_klu(self, klu: CKLine_Unit):
+    def add_single_klu(self, klu: KLineUnit):
         klu.set_metric(self.metric_model_lst)
         if len(self.lst) == 0:
-            self.lst.append(CKLine(klu, idx=0))
+            self.lst.append(KLine(klu, idx=0))
         else:
             _dir = self.lst[-1].try_add(klu)
             if _dir != KLINE_DIR.COMBINE:  # 不需要合并K线
-                self.lst.append(CKLine(klu, idx=len(self.lst), _dir=_dir))
+                self.lst.append(KLine(klu, idx=len(self.lst), _dir=_dir))
                 if len(self.lst) >= 3:
                     self.lst[-2].update_fx(self.lst[-3], self.lst[-1])
                 if self.bi_list.update_bi(self.lst[-2], self.lst[-1], self.step_calculation) and self.step_calculation:
@@ -139,7 +139,7 @@ class CKLine_List:
             yield from klc.lst
 
 
-def cal_seg(bi_list, seg_list: CSegListComm, last_sure_seg_start_bi_idx):
+def cal_seg(bi_list, seg_list: SegListComm, last_sure_seg_start_bi_idx):
     seg_list.update(bi_list)
 
     if len(seg_list) == 0:
@@ -147,7 +147,7 @@ def cal_seg(bi_list, seg_list: CSegListComm, last_sure_seg_start_bi_idx):
             bi.set_seg_idx(0)
         return -1
 
-    cur_seg: CSeg = seg_list[-1]
+    cur_seg: Seg = seg_list[-1]
 
     bi_idx = len(bi_list) - 1
     while bi_idx >= 0:

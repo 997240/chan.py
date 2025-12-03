@@ -1,7 +1,11 @@
-from Chan import CChan
-from ChanConfig import CChanConfig
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from DataAPI.BaoStockAPI import CBaoStock
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from chan import Chan
+from chan_config import ChanConfig
+from common.enums import AUTYPE, DATA_SRC, KL_TYPE
+from data_api.bao_stock_api import BaoStock
 
 if __name__ == "__main__":
     """
@@ -16,13 +20,13 @@ if __name__ == "__main__":
     data_src = DATA_SRC.BAO_STOCK
     lv_list = [KL_TYPE.K_DAY, KL_TYPE.K_30M]
 
-    config = CChanConfig({
+    config = ChanConfig({
         "trigger_step": True,
         "divergence_rate": 0.8,
         "min_zs_cnt": 1,
     })
 
-    chan = CChan(
+    chan = Chan(
         code=code,
         begin_time=begin_time,  # 已经没啥用了这一行
         end_time=end_time,  # 已经没啥用了这一行
@@ -31,9 +35,9 @@ if __name__ == "__main__":
         config=config,
         autype=AUTYPE.QFQ,  # 已经没啥用了这一行
     )
-    CBaoStock.do_init()
-    data_src_day = CBaoStock(code, k_type=KL_TYPE.K_DAY, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
-    data_src_30m = CBaoStock(code, k_type=KL_TYPE.K_30M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    BaoStock.do_init()
+    data_src_day = BaoStock(code, k_type=KL_TYPE.K_DAY, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    data_src_30m = BaoStock(code, k_type=KL_TYPE.K_30M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
     kl_30m_all = list(data_src_30m.get_kl_data())
 
     for _idx, klu in enumerate(data_src_day.get_kl_data()):
@@ -50,4 +54,4 @@ if __name__ == "__main__":
         print("当前所有日线:", [klu.time.to_str() for klu in chan[0].klu_iter()])
         print("当前所有30M K线:", [klu.time.to_str() for klu in chan[1].klu_iter()], "\n")
 
-    CBaoStock.do_close()
+    BaoStock.do_close()

@@ -5,24 +5,24 @@ import sys
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Union
 
-from BuySellPoint.BS_Point import CBS_Point
-from ChanConfig import CChanConfig
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from Common.ChanException import CChanException, ErrCode
-from Common.CTime import CTime
-from Common.func_util import check_kltype_order, kltype_lte_day
-from DataAPI.CommonStockAPI import CCommonStockApi
-from KLine.KLine_List import CKLine_List
-from KLine.KLine_Unit import CKLine_Unit
+from buy_sell_point.bs_point import BSPoint
+from chan_config import ChanConfig
+from common.enums import AUTYPE, DATA_SRC, KL_TYPE
+from common.chan_exception import ChanException, ErrCode
+from common.ctime import CTime
+from common.func_util import check_kltype_order, kltype_lte_day
+from data_api.common_stock_api import CommonStockApi
+from kline.kline_list import KLineList
+from kline.kline_unit import KLineUnit
 
 
-class CChan:
+class Chan:
     def __init__(
         self,
         code,
         begin_time=None,
         end_time=None,
-        data_src: Union[DATA_SRC, str] = DATA_SRC.BAO_STOCK,
+        data_src: Union[DATA_SRC, str] = DATA_SRC.FUTU,
         lv_list=None,
         config=None,
         autype: AUTYPE = AUTYPE.QFQ,
@@ -38,7 +38,7 @@ class CChan:
         self.lv_list: List[KL_TYPE] = lv_list
 
         if config is None:
-            config = CChanConfig()
+            config = ChanConfig()
         self.conf = config
 
         self.kl_misalign_cnt = 0
@@ -54,7 +54,7 @@ class CChan:
 
     def __deepcopy__(self, memo):
         cls = self.__class__
-        obj: CChan = cls.__new__(cls)
+        obj: Chan = cls.__new__(cls)
         memo[id(self)] = obj
         obj.code = self.code
         obj.begin_time = self.begin_time
@@ -83,11 +83,11 @@ class CChan:
         return obj
 
     def do_init(self):
-        self.kl_datas: Dict[KL_TYPE, CKLine_List] = {}
+        self.kl_datas: Dict[KL_TYPE, KLineList] = {}
         for idx in range(len(self.lv_list)):
-            self.kl_datas[self.lv_list[idx]] = CKLine_List(self.lv_list[idx], conf=self.conf)
+            self.kl_datas[self.lv_list[idx]] = KLineList(self.lv_list[idx], conf=self.conf)
 
-    def load_stock_data(self, stockapi_instance: CCommonStockApi, lv) -> Iterable[CKLine_Unit]:
+    def load_stock_data(self, stockapi_instance: CommonStockApi, lv) -> Iterable[KLineUnit]:
         for KLU_IDX, klu in enumerate(stockapi_instance.get_kl_data()):
             klu.set_idx(KLU_IDX)
             klu.kl_type = lv
@@ -132,13 +132,13 @@ class CChan:
     def trigger_load(self, inp):
         # {type: [klu, ...]}
         if not hasattr(self, 'klu_cache'):
-            self.klu_cache: List[Optional[CKLine_Unit]] = [None for _ in self.lv_list]
+            self.klu_cache: List[Optional[KLineUnit]] = [None for _ in self.lv_list]
         if not hasattr(self, 'klu_last_t'):
             self.klu_last_t = [CTime(1980, 1, 1, 0, 0) for _ in self.lv_list]
         for lv_idx, lv in enumerate(self.lv_list):
             if lv not in inp:
                 if lv_idx == 0:
-                    raise CChanException(f"最高级别{lv}没有传入数据", ErrCode.NO_DATA)
+                    raise ChanException(f"最高级别{lv}没有传入数据", ErrCode.NO_DATA)
                 continue
             for klu in inp[lv]:
                 klu.kl_type = lv
@@ -158,7 +158,7 @@ class CChan:
             try:
                 lv_klu_iter.append(self.get_load_stock_iter(stockapi_cls, lv))
                 valid_lv_list.append(lv)
-            except CChanException as e:
+            except ChanException as e:
                 if e.errcode == ErrCode.SRC_DATA_NOT_FOUND and self.conf.auto_skip_illegal_sub_lv:
                     if self.conf.print_warning:
                         print(f"[WARNING-{self.code}]{lv}级别获取数据失败，跳过")
@@ -168,34 +168,37 @@ class CChan:
         self.lv_list = valid_lv_list
         return lv_klu_iter
 
-    def GetStockAPI(self):
+    def get_stock_api(self):
         _dict = {}
         if self.data_src == DATA_SRC.BAO_STOCK:
-            from DataAPI.BaoStockAPI import CBaoStock
-            _dict[DATA_SRC.BAO_STOCK] = CBaoStock
+            from data_api.bao_stock_api import BaoStock
+            _dict[DATA_SRC.BAO_STOCK] = BaoStock
         elif self.data_src == DATA_SRC.CCXT:
-            from DataAPI.ccxt import CCXT
+            from data_api.ccxt import CCXT
             _dict[DATA_SRC.CCXT] = CCXT
         elif self.data_src == DATA_SRC.CSV:
-            from DataAPI.csvAPI import CSV_API
+            from data_api.csv_api import CSV_API
             _dict[DATA_SRC.CSV] = CSV_API
+        elif self.data_src == DATA_SRC.FUTU:
+            from data_api.futu_api import FutuApi
+            _dict[DATA_SRC.FUTU] = FutuApi
         if self.data_src in _dict:
             return _dict[self.data_src]
         assert isinstance(self.data_src, str)
         if self.data_src.find("custom:") < 0:
-            raise CChanException("load src type error", ErrCode.SRC_DATA_TYPE_ERR)
+            raise ChanException("load src type error", ErrCode.SRC_DATA_TYPE_ERR)
         package_info = self.data_src.split(":")[1]
         package_name, cls_name = package_info.split(".")
-        exec(f"from DataAPI.{package_name} import {cls_name}")
+        exec(f"from data_api.{package_name} import {cls_name}")
         return eval(cls_name)
 
     def load(self, step=False):
-        stockapi_cls = self.GetStockAPI()
+        stockapi_cls = self.get_stock_api()
         try:
             stockapi_cls.do_init()
             for lv_idx, klu_iter in enumerate(self.init_lv_klu_iter(stockapi_cls)):
                 self.add_lv_iter(lv_idx, klu_iter)
-            self.klu_cache: List[Optional[CKLine_Unit]] = [None for _ in self.lv_list]
+            self.klu_cache: List[Optional[KLineUnit]] = [None for _ in self.lv_list]
             self.klu_last_t = [CTime(1980, 1, 1, 0, 0) for _ in self.lv_list]
 
             yield from self.load_iterator(lv_idx=0, parent_klu=None, step=step)  # 计算入口
@@ -207,11 +210,11 @@ class CChan:
         finally:
             stockapi_cls.do_close()
         if len(self[0]) == 0:
-            raise CChanException("最高级别没有获得任何数据", ErrCode.NO_DATA)
+            raise ChanException("最高级别没有获得任何数据", ErrCode.NO_DATA)
 
     def set_klu_parent_relation(self, parent_klu, kline_unit, cur_lv, lv_idx):
         if self.conf.kl_data_check and kltype_lte_day(cur_lv) and kltype_lte_day(self.lv_list[lv_idx-1]):
-            self.check_kl_consitent(parent_klu, kline_unit)
+            self.check_kl_consistent(parent_klu, kline_unit)
         parent_klu.add_children(kline_unit)
         kline_unit.set_parent(parent_klu)
 
@@ -223,7 +226,7 @@ class CChan:
                 print(f"[ERROR-{self.code}]在计算{kline_unit.time}K线时发生错误!")
             raise
 
-    def try_set_klu_idx(self, lv_idx: int, kline_unit: CKLine_Unit):
+    def try_set_klu_idx(self, lv_idx: int, kline_unit: KLineUnit):
         if kline_unit.idx >= 0:
             return
         if len(self[lv_idx]) == 0:
@@ -246,7 +249,7 @@ class CChan:
                     kline_unit = self.get_next_lv_klu(lv_idx)
                     self.try_set_klu_idx(lv_idx, kline_unit)
                     if not kline_unit.time > self.klu_last_t[lv_idx]:
-                        raise CChanException(f"kline time err, cur={kline_unit.time}, last={self.klu_last_t[lv_idx]}, or refer to quick_guide.md, try set auto=False in the CTime returned by your data source class", ErrCode.KL_NOT_MONOTONOUS)
+                        raise ChanException(f"kline time err, cur={kline_unit.time}, last={self.klu_last_t[lv_idx]}, or refer to quick_guide.md, try set auto=False in the CTime returned by your data source class", ErrCode.KL_NOT_MONOTONOUS)
                     self.klu_last_t[lv_idx] = kline_unit.time
                 except StopIteration:
                     break
@@ -266,7 +269,7 @@ class CChan:
             if lv_idx == 0 and step:
                 yield self
 
-    def check_kl_consitent(self, parent_klu, sub_klu):
+    def check_kl_consistent(self, parent_klu, sub_klu):
         if parent_klu.time.year != sub_klu.time.year or \
            parent_klu.time.month != sub_klu.time.month or \
            parent_klu.time.day != sub_klu.time.day:
@@ -274,32 +277,32 @@ class CChan:
             if self.conf.print_warning:
                 print(f"[WARNING-{self.code}]父级别时间是{parent_klu.time}，次级别时间却是{sub_klu.time}")
             if len(self.kl_inconsistent_detail) >= self.conf.max_kl_inconsistent_cnt:
-                raise CChanException(f"父&子级别K线时间不一致条数超过{self.conf.max_kl_inconsistent_cnt}！！", ErrCode.KL_TIME_INCONSISTENT)
+                raise ChanException(f"父&子级别K线时间不一致条数超过{self.conf.max_kl_inconsistent_cnt}！！", ErrCode.KL_TIME_INCONSISTENT)
 
     def check_kl_align(self, kline_unit, lv_idx):
         if self.conf.kl_data_check and len(kline_unit.sub_kl_list) == 0:
             self.kl_misalign_cnt += 1
             if self.conf.print_warning:
                 print(f"[WARNING-{self.code}]当前{kline_unit.time}没在次级别{self.lv_list[lv_idx+1]}找到K线！！")
-            if self.kl_misalign_cnt >= self.conf.max_kl_misalgin_cnt:
-                raise CChanException(f"在次级别找不到K线条数超过{self.conf.max_kl_misalgin_cnt}！！", ErrCode.KL_DATA_NOT_ALIGN)
+            if self.kl_misalign_cnt >= self.conf.max_kl_misalign_cnt:
+                raise ChanException(f"在次级别找不到K线条数超过{self.conf.max_kl_misalgin_cnt}！！", ErrCode.KL_DATA_NOT_ALIGN)
 
-    def __getitem__(self, n) -> CKLine_List:
+    def __getitem__(self, n) -> KLineList:
         if isinstance(n, KL_TYPE):
             return self.kl_datas[n]
         elif isinstance(n, int):
             return self.kl_datas[self.lv_list[n]]
         else:
-            raise CChanException("unspoourt query type", ErrCode.COMMON_ERROR)
+            raise ChanException("unsupported query type", ErrCode.COMMON_ERROR)
 
-    def get_bsp(self, idx=None) -> List[CBS_Point]:
+    def get_bsp(self, idx=None) -> List[BSPoint]:
         print('[deprecated] use get_latest_bsp instead')
         if idx is not None:
             return self[idx].bs_point_lst.getSortedBspList()
         assert len(self.lv_list) == 1
         return self[0].bs_point_lst.getSortedBspList()
 
-    def get_latest_bsp(self, idx=None, number=1) -> List[CBS_Point]:
+    def get_latest_bsp(self, idx=None, number=1) -> List[BSPoint]:
         # number=0则取全部bsp，从最新到最旧排序
         if idx is not None:
             return self[idx].bs_point_lst.get_latest_bsp(number)
@@ -333,7 +336,7 @@ class CChan:
         sys.setrecursionlimit(_pre_limit)
 
     @staticmethod
-    def chan_load_pickle(file_path) -> 'CChan':
+    def chan_load_pickle(file_path) -> 'Chan':
         with open(file_path, "rb") as f:
             chan = pickle.load(f)
         last_klu = None

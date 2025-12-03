@@ -1,18 +1,18 @@
 from typing import Generic, Iterable, List, Optional, Self, TypeVar, Union, overload
 
-from Common.cache import make_cache
-from Common.CEnum import FX_TYPE, KLINE_DIR
-from Common.ChanException import CChanException, ErrCode
-from KLine.KLine_Unit import CKLine_Unit
+from common.cache import make_cache
+from common.enums import FX_TYPE, KLINE_DIR
+from common.chan_exception import ChanException, ErrCode
+from kline.kline_unit import KLineUnit
 
-from .Combine_Item import CCombine_Item
+from .combine_item import CombineItem
 
 T = TypeVar('T')
 
 
-class CKLine_Combiner(Generic[T]):
+class KLineCombiner(Generic[T]):
     def __init__(self, kl_unit: T, _dir):
-        item = CCombine_Item(kl_unit)
+        item = CombineItem(kl_unit)
         self.__time_begin = item.time_begin
         self.__time_end = item.time_end
         self.__high = item.high
@@ -61,7 +61,7 @@ class CKLine_Combiner(Generic[T]):
         assert self.next is not None
         return self.next
 
-    def test_combine(self, item: CCombine_Item, exclude_included=False, allow_top_equal=None):
+    def test_combine(self, item: CombineItem, exclude_included=False, allow_top_equal=None):
         if (self.high >= item.high and self.low <= item.low):
             return KLINE_DIR.COMBINE
         if (self.high <= item.high and self.low >= item.low):
@@ -75,7 +75,7 @@ class CKLine_Combiner(Generic[T]):
         if (self.high < item.high and self.low < item.low):
             return KLINE_DIR.UP
         else:
-            raise CChanException("combine type unknown", ErrCode.COMBINER_ERR)
+            raise ChanException("combine type unknown", ErrCode.COMBINER_ERR)
 
     def add(self, unit_kl: T):
         # only for deepcopy
@@ -89,11 +89,11 @@ class CKLine_Combiner(Generic[T]):
         # allow_top_equal = None普通模式
         # allow_top_equal = 1 被包含，顶部相等不合并
         # allow_top_equal = -1 被包含，底部相等不合并
-        combine_item = CCombine_Item(unit_kl)
+        combine_item = CombineItem(unit_kl)
         _dir = self.test_combine(combine_item, exclude_included, allow_top_equal)
         if _dir == KLINE_DIR.COMBINE:
             self.__lst.append(unit_kl)
-            if isinstance(unit_kl, CKLine_Unit):
+            if isinstance(unit_kl, KLineUnit):
                 unit_kl.set_klc(self)
             if self.dir == KLINE_DIR.UP:
                 if combine_item.high != combine_item.low or combine_item.high != self.high:  # 处理一字K线
@@ -104,7 +104,7 @@ class CKLine_Combiner(Generic[T]):
                     self.__high = min([self.high, combine_item.high])
                     self.__low = min([self.low, combine_item.low])
             else:
-                raise CChanException(f"KLINE_DIR = {self.dir} err!!! must be {KLINE_DIR.UP}/{KLINE_DIR.DOWN}", ErrCode.COMBINER_ERR)
+                raise ChanException(f"KLINE_DIR = {self.dir} err!!! must be {KLINE_DIR.UP}/{KLINE_DIR.DOWN}", ErrCode.COMBINER_ERR)
             self.__time_end = combine_item.time_end
             self.clean_cache()
         # 返回UP/DOWN/COMBINE给KL_LIST，设置下一个的方向
@@ -117,16 +117,16 @@ class CKLine_Combiner(Generic[T]):
     @make_cache
     def get_high_peak_klu(self) -> T:
         for kl in self.lst[::-1]:
-            if CCombine_Item(kl).high == self.high:
+            if CombineItem(kl).high == self.high:
                 return kl
-        raise CChanException("can't find peak...", ErrCode.COMBINER_ERR)
+        raise ChanException("can't find peak...", ErrCode.COMBINER_ERR)
 
     @make_cache
     def get_low_peak_klu(self) -> T:
         for kl in self.lst[::-1]:
-            if CCombine_Item(kl).low == self.low:
+            if CombineItem(kl).low == self.low:
                 return kl
-        raise CChanException("can't find peak...", ErrCode.COMBINER_ERR)
+        raise ChanException("can't find peak...", ErrCode.COMBINER_ERR)
 
     def update_fx(self, _pre: Self, _next: Self, exclude_included=False, allow_top_equal=None):
         # allow_top_equal = None普通模式
