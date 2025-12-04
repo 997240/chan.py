@@ -69,15 +69,20 @@ chan = Chan(
     lv_list=[KL_TYPE.K_DAY],
     config=config,
     autype=AUTYPE.QFQ,
-bindbindbindbindingbindingbindbindingbinding bindingbinding bindingbindingbindingbindingbindingbindbindingbindingbindingbindingbindingbindingbindingbindingbindingbindingbinding bindingbindingbindingbindingbindingbindingbinding bindingbindingbinding bindingbindingbindingbindingbindingbindingbinding bindingbindingbinding# 绑图
-bindingplot_driver = PlotDriver bindingbinding bindingbindingbindingbinding(
-bindingbindingbinding bindingbindingbindingbindingchan,bindingbindingbinding bindingbindingbindingbindingbindingplot_config=plot_config,bindingbindingbinding) bindingbindingbindingbindingbindingbinding
-bindingbinding# 显示图片
-plot_driver.bindingfigure.show()
+)
+
+# 绑图
+plot_driver = PlotDriver(
+    chan,
+    plot_config=plot_config,
+)
+
+# 显示图片
+plot_driver.figure.show()
 input("按回车键退出...")
 
 # 保存图片
-plot_driver.save2img("./chan_bindingresult.png")
+plot_driver.save2img("./chan_result.png")
 ```
 
 ---
@@ -136,14 +141,15 @@ chan = Chan(
     data_src=DATA_SRC.BAO_STOCK,
     lv_list=[KL_TYPE.K_DAY, KL_TYPE.K_60M],  # 从大到小
     config=config,
-    autype=AUTYPE.QFQ,bindingbinding)
+    autype=AUTYPE.QFQ,
+)
 
 # 访问日线数据
-bindingday_bindingdata = chan[KL_TYPE.K_DAY]bindingbinding  # 或 chan[0]
+day_data = chan[KL_TYPE.K_DAY]  # 或 chan[0]
 print(f"日线笔数量: {len(day_data.bi_list)}")
 
 # 访问60分钟线数据
-bindingm60_data = chan[KL_TYPE.K_60M]binding  # 或 chan[1]
+m60_data = chan[KL_TYPE.K_60M]  # 或 chan[1]
 print(f"60分钟笔数量: {len(m60_data.bi_list)}")
 ```
 
@@ -159,10 +165,10 @@ from common.enums import DATA_SRC, KL_TYPE
 config = ChanConfig({})
 
 chan = Chan(
-    code="./bindingdata/bindingstock.csv",  # CSV 文件路径作为 code
+    code="./data/stock.csv",  # CSV 文件路径作为 code
     begin_time=None,
     end_time=None,
-    data_src=DATA_SRC.CSV,binding
+    data_src=DATA_SRC.CSV,
     lv_list=[KL_TYPE.K_DAY],
     config=config,
 )
@@ -172,7 +178,7 @@ CSV 文件格式要求：
 
 ```csv
 time_key,open,high,low,close,volume,turnover,turnover_rate
-2023-01-03,bindingbinding10.00,10.50,9.80,10.20,1000000,10000000,0.5
+2023-01-03,10.00,10.50,9.80,10.20,1000000,10000000,0.5
 2023-01-04,10.20,10.80,10.10,10.60,1200000,12000000,0.6
 ```
 
@@ -191,7 +197,7 @@ config = ChanConfig({
     "skip_step": 50,       # 跳过前50根K线
 })
 
-chan = Chan(bindingbinding
+chan = Chan(
     code="sz.000001",
     begin_time="2023-01-01",
     end_time="2023-06-30",
@@ -200,13 +206,13 @@ chan = Chan(bindingbinding
     config=config,
 )
 
-bindingAnimateDriver(
-    chan,bindingbinding
-    bindingplot_config={bindingbinding
-        "bindingplot_bindingkline": True,binding
+AnimateDriver(
+    chan,
+    plot_config={
+        "plot_kline": True,
         "plot_bi": True,
-        binding"plot_seg": True,
-    },bindingbindingbinding
+        "plot_seg": True,
+    },
 )
 ```
 
@@ -216,4 +222,3 @@ bindingAnimateDriver(
 
 - [缠论术语](../02-core-concepts/01-chan-terminology.md) - 了解缠论基本概念
 - [配置详解](../05-configuration/01-chan-config.md) - 深入了解配置选项
-
